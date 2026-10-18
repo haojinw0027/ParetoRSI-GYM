@@ -1,0 +1,25 @@
+[project]
+name = "paretorsi-gym"
+version = "1.0.0"
+description = "Multi-domain post-training data curation by an LLM agent"
+requires-python = ">=3.10"
+dependencies = [
+    "pyyaml",
+    "datasets>=4.0",
+    "huggingface_hub",
+    "math-verify[antlr4_13_2]==0.8.0",
+]
+
+[project.optional-dependencies]
+gpu = [
+    "vllm==0.20.0",
+    "transformers==5.5.4",
+    "peft==0.18.1",
+]
+test = ["pytest", "transformers", "jinja2"]
+
+[tool.setuptools]
+packages = ["paretorsi"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

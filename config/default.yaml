@@ -1,0 +1,69 @@
+# ParetoRSI-Gym: everything about a run that the agent cannot change.
+# `session.py init` copies this file to <run>/config.lock.yaml; every later
+# step reads the lock, never this file.
+
+base_model: Qwen/Qwen3-4B-Base   # or mistralai/Ministral-3-3B-Base-2512, allenai/Olmo-3-1025-7B
+
+# Sampling for every evaluation, proxy and held-out alike.
+decoding:
+  k: 4                # samples per item
+  temperature: 0.6
+  top_p: 0.95
+  top_k: 20
+  max_tokens: 8192
+  seed: 0
+
+train:
+  seed: 0             # overridden by `session.py init --seed`
+  init: agent         # agent: the agent picks the parent checkpoint each round
+                      # base:  every round trains a fresh LoRA from base_model
+  # The agent sets these in train_config.json, within these ranges.
+  tunable:
+    lr:           {default: 1.0e-5, min: 1.0e-6, max: 1.0e-4}
+    epochs:       {default: 1, min: 1, max: 1}
+    lora_rank:    {default: 32, choices: [8, 16, 32, 64]}
+    batch_size:   {default: 64, choices: [16, 32, 64, 128]}
+    max_len:      {default: 8192, min: 2048, max: 16384}
+    warmup_steps: {default: 10, min: 0, max: 200}
+
+budget:
+  rounds:                  # number of curation rounds
+  max_scheduled_tokens:    # per round: sum over entries of min(len, max_len) x epochs
+  max_entries:             # per round
+  round_wall_clock_s:      # hard limit on the agent's time per round
+  plan_deadline_s:         # reads refuse after this until plan.json exists
+  closeout_s:              # final window: no remote acquisition, only selection and submit
+  max_relaunches:          # relaunches of an agent that exits without submitting
+  agent_usd:               # claude-code only: --max-budget-usd of the first launch
+  agent_relaunch_usd:      # claude-code only: --max-budget-usd of each relaunch
+  hf_bytes:                # per run
+
+principles:
+  max_tokens: 8000         # beta: active, agent-written bullets only (chars / 4)
+  cite_tolerance_pp: 0.5   # a cited score change must match the record this closely
+
+decontamination:
+  ngram: 13
+
+# Each domain has a proxy (scored every round, shown to the agent with
+# per-item results) and a held-out set (scored once after the run, never
+# shown).  `metric` is the headline: avg@k, maj@k (multiple choice only) or
+# pass@k; every report carries all of them.  The multiple-choice proxies use
+# maj@k because that is what the agent was shown in the reported runs; every
+# held-out score is avg@k.
+domains:
+  math:
+    proxy:   {data: benchmarks/math/math500_proxy_200.jsonl, task: math, metric: avg}
+    heldout: {data: benchmarks/math/math500_heldout_300.jsonl, task: math, metric: avg}
+  science:
+    proxy:   {data: benchmarks/science/gpqa_main_200.jsonl, task: mcq, metric: maj}
+    heldout: {data: benchmarks/science/gpqa_diamond_198.jsonl, task: mcq, metric: avg}
+  medical:
+    proxy:   {data: benchmarks/medical/medbullets_proxy_150.jsonl, task: mcq, metric: maj}
+    heldout: {data: benchmarks/medical/medbullets_heldout_148.jsonl, task: mcq, metric: avg}
+  finance:
+    proxy:   {data: benchmarks/finance/supergpqa_econ_proxy_200.jsonl, task: mcq, metric: maj}
+    heldout: {data: benchmarks/finance/supergpqa_econ_heldout_200.jsonl, task: mcq, metric: avg}
+  code:
+    proxy:   {data: benchmarks/code/mbppplus_200.jsonl, task: code, metric: avg}
+    heldout: {data: benchmarks/code/humanevalplus.jsonl, task: code, metric: avg}
